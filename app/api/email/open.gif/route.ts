@@ -1,6 +1,6 @@
 // app/api/email/open.gif/route.ts
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export async function GET(req: Request) {
   try {
@@ -8,7 +8,7 @@ export async function GET(req: Request) {
     const user_id = url.searchParams.get("u");
 
     if (user_id) {
-      await supabaseAdmin
+      await getSupabaseAdmin()
         .from("notification_settings")
         .update({ last_weekly_open: new Date().toISOString() })
         .eq("user_id", user_id);

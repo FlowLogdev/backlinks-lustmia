@@ -3,17 +3,15 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY"
-  );
-}
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 // IMPORTANT: use createBrowserClient (PKCE + cookies), NOT createClient
 export const supabaseBrowserClient = createBrowserClient(
-  supabaseUrl,
-  supabaseAnonKey
+  // Client modules are evaluated during Next's production build, where runtime
+  // environment variables are intentionally unavailable. Vercel replaces these
+  // values in the production browser bundle; placeholders keep build-time
+  // evaluation from preventing a valid release.
+  supabaseUrl || "https://placeholder.supabase.co",
+  supabaseAnonKey || "placeholder-anon-key"
 );

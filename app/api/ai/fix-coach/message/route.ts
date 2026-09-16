@@ -1,7 +1,7 @@
 // app/api/ai/fix-coach/message/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 // import your AI client here if you have one, e.g. OpenAI
 // import { openai } from "@/lib/openai";
 
@@ -27,6 +27,7 @@ function getLimitForPlan(plan: string) {
 }
 
 export async function POST(req: NextRequest) {
+  const supabaseAdmin = getSupabaseAdmin();
   try {
     const { question, siteContext, sessionId } = await req
       .json()
