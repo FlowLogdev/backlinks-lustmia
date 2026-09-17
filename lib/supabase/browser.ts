@@ -3,16 +3,14 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Browser credentials are intentionally public. Keeping the active project
+// coordinates here prevents Vercel's stale build-time public environment values
+// from sending browser authentication to a retired Supabase project.
+const supabaseUrl = "https://gaoundygwhttdfqukmdc.supabase.co";
+const supabaseAnonKey = "sb_publishable_m34lU0o3vaHmdqwl1TAJbQ_WWz5Sr4s";
 
 // IMPORTANT: use createBrowserClient (PKCE + cookies), NOT createClient
 export const supabaseBrowserClient = createBrowserClient(
-  // Client modules are evaluated during Next's production build, where runtime
-  // environment variables are intentionally unavailable. Vercel replaces these
-  // values in the production browser bundle. These are the public project
-  // coordinates used only as a build-time fallback, so auth cannot silently
-  // target a non-existent placeholder when a deployment is built without them.
-  supabaseUrl || "https://gaoundygwhttdfqukmdc.supabase.co",
-  supabaseAnonKey || "sb_publishable_m34lU0o3vaHmdqwl1TAJbQ_WWz5Sr4s"
+  supabaseUrl,
+  supabaseAnonKey
 );
