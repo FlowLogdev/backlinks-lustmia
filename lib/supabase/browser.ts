@@ -10,8 +10,9 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 export const supabaseBrowserClient = createBrowserClient(
   // Client modules are evaluated during Next's production build, where runtime
   // environment variables are intentionally unavailable. Vercel replaces these
-  // values in the production browser bundle; placeholders keep build-time
-  // evaluation from preventing a valid release.
-  supabaseUrl || "https://placeholder.supabase.co",
-  supabaseAnonKey || "placeholder-anon-key"
+  // values in the production browser bundle. These are the public project
+  // coordinates used only as a build-time fallback, so auth cannot silently
+  // target a non-existent placeholder when a deployment is built without them.
+  supabaseUrl || "https://gaoundygwhttdfqukmdc.supabase.co",
+  supabaseAnonKey || "sb_publishable_m34lU0o3vaHmdqwl1TAJbQ_WWz5Sr4s"
 );
