@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { supabaseAuthPublishableKey, supabaseAuthUrl } from "@/lib/supabase/auth-config";
 
 export async function proxy(req: NextRequest) {
   const url = req.nextUrl;
@@ -42,19 +43,22 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnon =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnon) {
-    // env broken: safest thing is send to /login
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
+  const cookieName = `sb-${new URL(supabaseAuthUrl).hostname.split(".")[0]}-auth-token`;
+  const hadSession = req.cookies.getAll().some(({ name }) =>
+    name === cookieName || name.startsWith(`${cookieName}.`),
+  );
+  const signIn = () => {
+    const loginUrl = new URL("/login", req.url);
+    loginUrl.searchParams.set("next", pathname);
+    if (hadSession) {
+      loginUrl.searchParams.set("error", "Your session could not be verified. Please sign in again.");
+    }
+    return NextResponse.redirect(loginUrl);
+  };
 
   const res = NextResponse.next();
 
-  const supabase = createServerClient(supabaseUrl, supabaseAnon, {
+  const supabase = createServerClient(supabaseAuthUrl, supabaseAuthPublishableKey, {
     cookies: {
       getAll() {
         return req.cookies.getAll();
@@ -74,19 +78,13 @@ export async function proxy(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     // Not logged in → send to /login with ?next=
-    if (!user) {
-      const loginUrl = new URL("/login", req.url);
-      loginUrl.searchParams.set("next", pathname);
-      return NextResponse.redirect(loginUrl);
-    }
+    if (!user) return signIn();
 
     // Logged in → allow dashboard/api
     return res;
   } catch (err) {
     console.error("middleware auth error", err);
-    const loginUrl = new URL("/login", req.url);
-    loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
+    return signIn();
   }
 }
 

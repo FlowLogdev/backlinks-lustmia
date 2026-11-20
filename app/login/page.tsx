@@ -2,14 +2,13 @@
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
 import { AuthShell } from "@/components/AuthShell";
 import { supabaseBrowserClient } from "@/lib/supabase/browser";
 import { authNext } from "@/lib/supabase/auth-next";
 
 function LoginInner() {
-  const router = useRouter();
   const params = useSearchParams();
   const next = authNext(params.get("next"));
   const callbackError = params.get("error");
@@ -30,10 +29,12 @@ function LoginInner() {
       // Local storage may be unavailable in privacy-focused browsers.
     }
 
-    supabaseBrowserClient.auth.getUser().then(({ data }) => {
-      if (data.user) router.replace(next);
-    });
-  }, [next, router]);
+    if (!callbackError) {
+      supabaseBrowserClient.auth.getUser().then(({ data }) => {
+        if (data.user) window.location.replace(next);
+      });
+    }
+  }, [callbackError, next]);
 
   async function onLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -66,8 +67,7 @@ function LoginInner() {
         // The login itself has already succeeded.
       }
 
-      router.replace(next);
-      router.refresh();
+      window.location.replace(next);
     } catch {
       setError("We could not sign you in. Please try again.");
     } finally {

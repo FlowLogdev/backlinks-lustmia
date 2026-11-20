@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { authNext } from "@/lib/supabase/auth-next";
+import { supabaseAuthPublishableKey, supabaseAuthUrl } from "@/lib/supabase/auth-config";
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl;
@@ -28,22 +29,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("[auth/callback] Missing Supabase env vars");
-    return NextResponse.json(
-      { error: "Supabase configuration error" },
-      { status: 500 }
-    );
-  }
-
   // We create *one* redirect response and let Supabase attach cookies to it.
   const redirectResponse = NextResponse.redirect(new URL(next, url.origin));
 
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+  const supabase = createServerClient(supabaseAuthUrl, supabaseAuthPublishableKey, {
     cookies: {
       get(name) {
         return req.cookies.get(name)?.value;
