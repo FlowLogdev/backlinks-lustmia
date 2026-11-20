@@ -1,11 +1,12 @@
 // app/api/ai/fix-coach/message/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { supabaseAuthPublishableKey, supabaseAuthUrl } from "@/lib/supabase/auth-config";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { hasRankCoreInternalAccess } from "@/lib/rankcore-admin";
 // import your AI client here if you have one, e.g. OpenAI
 // import { openai } from "@/lib/openai";
 
-const ADMIN_EMAILS = ["sales@lustmia.com", "sales@lustmia.com.br"] as const;
 
 const PLAN_LIMITS: Record<string, number> = {
   free: 20,
@@ -40,22 +41,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnon =
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-      process.env.SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseAnon) {
-      return NextResponse.json(
-        { ok: false, error: "Supabase env vars not configured" },
-        { status: 500 }
-      );
-    }
-
     // Response object to carry any Set-Cookie coming from @supabase/ssr
     const cookieResponse = new NextResponse();
 
-    const supabase = createServerClient(supabaseUrl, supabaseAnon, {
+    const supabase = createServerClient(supabaseAuthUrl, supabaseAuthPublishableKey, {
       cookies: {
         getAll() {
           return req.cookies.getAll();
@@ -74,12 +63,7 @@ export async function POST(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     const userId = user?.id ?? `anon:${sessionId || "unknown"}`;
-    const email = (user?.email || "").toLowerCase();
-
-    // ✅ ADMIN users are never limited
-    const isAdmin =
-      email.length > 0 &&
-      ADMIN_EMAILS.includes(email as (typeof ADMIN_EMAILS)[number]);
+    const isAdmin = hasRankCoreInternalAccess(user);
 
     let plan: string = "free";
 

@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-import { createBrowserClient } from "@supabase/ssr";
+import { supabaseBrowserClient } from "@/lib/supabase/browser";
+import { isRankCoreAdmin } from "@/lib/rankcore-admin";
 
 type Strategy = "desktop" | "mobile";
 
@@ -224,15 +225,11 @@ function getOrCreateUserId() {
 }
 
 /**
- * Admin check:
- * - Always treat sales@lustmia.com as admin (master user)
- * - Optionally allow more admins via NEXT_PUBLIC_SUPERUSER_EMAILS="a@b.com,c@d.com"
+ * Optional UI override. Server routes use the verified RankCore admin list.
  */
 function isAdminEmail(email?: string | null) {
   if (!email) return false;
   const e = email.trim().toLowerCase();
-
-  if (e === "sales@lustmia.com") return true;
 
   const raw = process.env.NEXT_PUBLIC_SUPERUSER_EMAILS || "";
   const list = raw
@@ -274,18 +271,7 @@ export default function MetricsPage() {
 
     (async () => {
       try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-        // If env vars are missing, do NOT crash the page.
-        if (!supabaseUrl || !supabaseAnonKey) {
-          if (!mounted) return;
-          setIsAdmin(false);
-          return;
-        }
-
-        const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
-        const { data, error } = await supabase.auth.getUser();
+        const { data, error } = await supabaseBrowserClient.auth.getUser();
 
         if (!mounted) return;
 
@@ -295,7 +281,7 @@ export default function MetricsPage() {
         }
 
         const email = data?.user?.email ?? null;
-        setIsAdmin(isAdminEmail(email));
+        setIsAdmin(isRankCoreAdmin(data.user) || isAdminEmail(email));
       } catch {
         if (!mounted) return;
         setIsAdmin(false);

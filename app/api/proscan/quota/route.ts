@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServer } from "@/lib/supabase/server";
+import { isRankCoreAdmin } from "@/lib/rankcore-admin";
 
 export const runtime = "nodejs";
 
 // Demo user (falmeida)
 const DEMO_USER_ID = "9b7e2a2a-7f2f-4f6a-9d9e-falmeida000001";
-
-// ONLY this email should be master/admin
-const ADMIN_EMAIL = "sales@lustmia.com";
 
 // For admin we return a huge daily limit so UI never gates
 const ADMIN_DAILY_LIMIT = 999999;
@@ -55,124 +53,25 @@ function nextUtcMidnightISO() {
   return resetAt.toISOString();
 }
 
-/** ---------- Fallback helpers (subdomain/cookie reliability) ---------- */
-
-function parseCookieHeader(cookieHeader: string | null) {
-  const out: Record<string, string> = {};
-  if (!cookieHeader) return out;
-
-  const parts = cookieHeader.split(";").map((p) => p.trim());
-  for (const p of parts) {
-    const idx = p.indexOf("=");
-    if (idx === -1) continue;
-    const k = p.slice(0, idx).trim();
-    const v = p.slice(idx + 1).trim();
-    out[k] = v;
-  }
-  return out;
-}
-
-function base64UrlDecodeToString(input: string) {
-  const b64 = input.replace(/-/g, "+").replace(/_/g, "/");
-  const pad = b64.length % 4 ? "=".repeat(4 - (b64.length % 4)) : "";
-  return Buffer.from(b64 + pad, "base64").toString("utf8");
-}
-
-function tryDecodeJwtEmail(accessToken?: string | null) {
-  if (!accessToken) return null;
-  const parts = accessToken.split(".");
-  if (parts.length < 2) return null;
-
-  try {
-    const payloadJson = base64UrlDecodeToString(parts[1]);
-    const payload = JSON.parse(payloadJson);
-    const email =
-      (payload?.email as string | undefined) ||
-      (payload?.user_email as string | undefined) ||
-      null;
-    return email ? email.toLowerCase() : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Attempts to read the Supabase auth cookie created by auth-helpers:
- * often named like: sb-<project-ref>-auth-token
- */
-function tryGetEmailFromSupabaseCookie(req: Request) {
-  const cookieHeader = req.headers.get("cookie");
-  const cookies = parseCookieHeader(cookieHeader);
-
-  const authCookieKey = Object.keys(cookies).find(
-    (k) => k.startsWith("sb-") && k.endsWith("-auth-token")
-  );
-
-  if (!authCookieKey) return null;
-
-  const raw = cookies[authCookieKey];
-  if (!raw) return null;
-
-  try {
-    const decoded = decodeURIComponent(raw);
-
-    // Try JSON parse first.
-    try {
-      const parsed = JSON.parse(decoded);
-      const emailFromUser = parsed?.user?.email ?? null;
-      if (emailFromUser) return String(emailFromUser).toLowerCase();
-      const token = parsed?.access_token ?? null;
-      return tryDecodeJwtEmail(token);
-    } catch {
-      // Try base64 decode -> JSON
-      const asString = Buffer.from(decoded, "base64").toString("utf8");
-      const parsed = JSON.parse(asString);
-      const emailFromUser = parsed?.user?.email ?? null;
-      if (emailFromUser) return String(emailFromUser).toLowerCase();
-      const token = parsed?.access_token ?? null;
-      return tryDecodeJwtEmail(token);
-    }
-  } catch {
-    return null;
-  }
-}
-
 export async function GET(req: Request) {
   try {
-    const supabaseAdmin = getSupabaseAdmin();
     const supabaseAuth = await createSupabaseServer();
     const { searchParams } = new URL(req.url);
 
-    // -----------------------------
-    // 0) Identify logged-in user (cookie auth is source of truth)
-    // -----------------------------
-    let authedEmail: string | null = null;
-    let authedUserId: string | null = null;
-
-    try {
-      const { data } = await supabaseAuth.auth.getUser();
-      authedEmail = data?.user?.email?.toLowerCase() ?? null;
-      authedUserId = data?.user?.id ?? null;
-    } catch {
-      authedEmail = null;
-      authedUserId = null;
-    }
-
-    // Fallback: read Supabase auth cookie directly and extract email
-    // (NOTE: we cannot reliably extract userId from this fallback)
-    if (!authedEmail) {
-      authedEmail = tryGetEmailFromSupabaseCookie(req);
-    }
-
-    const isAdmin = authedEmail === ADMIN_EMAIL;
+    const authedUser = await supabaseAuth.auth.getUser().then(
+      ({ data }) => data.user,
+      () => null,
+    );
+    const authedEmail = authedUser?.email?.toLowerCase() ?? null;
+    const isAdmin = isRankCoreAdmin(authedUser);
 
     // IMPORTANT:
     // - If user is authenticated, ALWAYS use authedUserId (ignore spoofable ?u=)
     // - If not authenticated, fall back to ?u= or demo id
     const userIdParam = searchParams.get("u");
     const userId = isAdmin
-      ? `admin-${ADMIN_EMAIL}` // stable admin id (quota irrelevant)
-      : authedUserId || userIdParam || DEMO_USER_ID;
+      ? `admin-${authedEmail}` // stable admin id (quota irrelevant)
+      : authedUser?.id || userIdParam || DEMO_USER_ID;
 
     // -----------------------------
     // ADMIN SHORT-CIRCUIT
@@ -196,6 +95,7 @@ export async function GET(req: Request) {
     // -----------------------------
     // Normal users
     // -----------------------------
+    const supabaseAdmin = getSupabaseAdmin();
     let usedToday = 0;
     let plan = "free";
     let status = "inactive";

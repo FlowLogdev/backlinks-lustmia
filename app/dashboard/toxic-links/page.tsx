@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import clsx from "clsx";
 
 import DashboardLayout from "@/components/DashboardLayout";
+import { hasRankCoreInternalAccess } from "@/lib/rankcore-admin";
 import {
   ShieldAlert,
   ShieldCheck,
@@ -58,9 +59,7 @@ export default function ToxicLinksPage() {
   const [hydrated, setHydrated] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const isInternal =
-    userEmail?.toLowerCase() === "sales@lustmia.com" ||
-    userEmail?.toLowerCase() === "sales@lustmia.com.br";
+  const [isInternal, setIsInternal] = useState(false);
 
   useEffect(() => {
     supabaseBrowserClient.auth
@@ -68,6 +67,7 @@ export default function ToxicLinksPage() {
       .then(({ data }) => {
         if (data.user) {
           setUserEmail(data.user.email || null);
+          setIsInternal(hasRankCoreInternalAccess(data.user));
           setUserId(data.user.id || null);
 
           // if no domain yet, default to email's domain

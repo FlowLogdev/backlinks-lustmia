@@ -1,6 +1,7 @@
 "use client";
 
 import DashboardLayout from "@/components/DashboardLayout";
+import { hasRankCoreInternalAccess } from "@/lib/rankcore-admin";
 import { useEffect, useMemo, useState } from "react";
 import {
   AreaChart,
@@ -279,7 +280,6 @@ export default function Dashboard() {
   const [recentScans, setRecentScans] = useState<any[]>([]);
 
   const [displayName, setDisplayName] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   /** NEW: Site Health AI state */
   const [siteHealth, setSiteHealth] = useState<SiteHealthAI | null>(null);
@@ -292,10 +292,7 @@ export default function Dashboard() {
     null
   );
 
-  // INTERNAL OVERRIDE: treat sales@lustmia.com as “always Pro”
-  const isInternal =
-    userEmail?.toLowerCase() === "sales@lustmia.com" ||
-    userEmail?.toLowerCase() === "sales@lustmia.com.br";
+  const [isInternal, setIsInternal] = useState(false);
 
   const remaining = quota?.remaining ?? 0;
   const planName = quota?.plan ?? (isInternal ? "internal" : "free");
@@ -311,7 +308,7 @@ export default function Dashboard() {
       const user = data.user;
       const meta: any = user.user_metadata || {};
       const email = user.email || "";
-      setUserEmail(email || null);
+      setIsInternal(hasRankCoreInternalAccess(user));
 
       const first =
         meta.first_name ||

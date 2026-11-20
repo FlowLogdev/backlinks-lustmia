@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import * as cheerio from "cheerio";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServer } from "@/lib/supabase/server";
+import { isRankCoreAdmin } from "@/lib/rankcore-admin";
 
 export const runtime = "nodejs";
 
@@ -11,7 +12,6 @@ type ScanRequest = {
 };
 
 // ONLY this email should be master/admin
-const ADMIN_EMAIL = "sales@lustmia.com";
 const ADMIN_DAILY_LIMIT = 999999;
 
 function getSupabaseAdmin() {
@@ -213,7 +213,7 @@ export async function POST(req: Request) {
     const authedUser = authData?.user ?? null;
 
     const authedEmail = (authedUser?.email ?? "").toLowerCase();
-    const isAdmin = authedEmail === ADMIN_EMAIL;
+    const isAdmin = isRankCoreAdmin(authedUser);
 
     const supabaseAdmin = getSupabaseAdmin();
 
@@ -222,7 +222,7 @@ export async function POST(req: Request) {
     // Prefer real authed user id when logged in; fallback to body.userId if not
     const effectiveUserId =
       isAdmin
-        ? `admin-${ADMIN_EMAIL}`
+        ? `admin-${authedEmail}`
         : authedUser?.id || body.userId || null;
 
     if (!effectiveUserId) {

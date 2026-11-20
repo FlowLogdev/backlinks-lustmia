@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServer } from "@/lib/supabase/server";
+import { isRankCoreAdmin } from "@/lib/rankcore-admin";
 
 export const runtime = "nodejs";
-
-const ADMIN_EMAIL = "sales@lustmia.com";
 
 function getSupabaseAdmin() {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -148,8 +147,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const authedEmail = (authedUser.email ?? "").toLowerCase();
-    const isAdmin = authedEmail === ADMIN_EMAIL;
+    const isAdmin = isRankCoreAdmin(authedUser);
     const userId = authedUser.id;
 
     const openaiKey = process.env.OPENAI_API_KEY;
@@ -157,7 +155,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing OPENAI_API_KEY" }, { status: 500 });
     }
 
-    const supabaseAdmin = getSupabaseAdmin();
+    const supabaseAdmin = isAdmin ? null : getSupabaseAdmin();
 
     // ---------------------------------------
     // ADMIN BYPASS: skip subscription + quota
@@ -166,7 +164,7 @@ export async function POST(req: Request) {
       | (ReturnType<typeof reserveDailyToken> extends Promise<infer R> ? R : never)
       | null = null;
 
-    if (!isAdmin) {
+    if (supabaseAdmin) {
       // 1) Verify subscription is active + paid
       let plan = "free";
       let status = "inactive";
@@ -320,7 +318,7 @@ ${JSON.stringify(psi).slice(0, 180000)}
 
     if (!r.ok) {
       // rollback ONLY if we reserved (non-admin)
-      if (reservation && reservation.ok) {
+      if (supabaseAdmin && reservation?.ok) {
         await rollbackDailyToken({
           supabaseAdmin,
           userId,
@@ -340,7 +338,7 @@ ${JSON.stringify(psi).slice(0, 180000)}
       data?.output?.[0]?.content?.[0]?.text ?? data?.output_text ?? null;
 
     if (!text) {
-      if (reservation && reservation.ok) {
+      if (supabaseAdmin && reservation?.ok) {
         await rollbackDailyToken({
           supabaseAdmin,
           userId,
@@ -356,7 +354,7 @@ ${JSON.stringify(psi).slice(0, 180000)}
     try {
       parsed = JSON.parse(text);
     } catch {
-      if (reservation && reservation.ok) {
+      if (supabaseAdmin && reservation?.ok) {
         await rollbackDailyToken({
           supabaseAdmin,
           userId,
