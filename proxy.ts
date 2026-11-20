@@ -7,11 +7,11 @@ export async function proxy(req: NextRequest) {
   const url = req.nextUrl;
   const pathname = url.pathname;
 
-  // 1) If Supabase sends ?code=... or ?error=... anywhere,
-  //    send it through /auth/callback EXACTLY once.
+  // Forward provider callbacks while allowing the login page to display its own errors.
   const hasCode = url.searchParams.has("code");
   const hasError =
-    url.searchParams.has("error") || url.searchParams.has("error_description");
+    url.searchParams.has("error_description") ||
+    (pathname === "/" && url.searchParams.has("error"));
 
   if (pathname !== "/auth/callback" && (hasCode || hasError)) {
     const next = url.searchParams.get("next") || "/dashboard";

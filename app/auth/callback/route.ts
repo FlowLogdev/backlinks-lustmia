@@ -1,11 +1,12 @@
 // app/auth/callback/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { authNext } from "@/lib/supabase/auth-next";
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl;
 
-  const next = url.searchParams.get("next") || "/dashboard";
+  const next = authNext(url.searchParams.get("next"));
   const code = url.searchParams.get("code");
 
   const errorDescription =
@@ -60,10 +61,15 @@ export async function GET(req: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (error) {
-      console.error("[auth/callback] exchangeCodeForSession error", error);
+      console.error("[auth/callback] exchangeCodeForSession failed", error.name);
       const loginUrl = new URL("/login", url.origin);
       loginUrl.searchParams.set("next", next);
-      loginUrl.searchParams.set("error", error.message);
+      loginUrl.searchParams.set(
+        "error",
+        error.name === "AuthPKCECodeVerifierMissingError"
+          ? "This link needs the browser where you started. If your email is already confirmed, sign in."
+          : "This sign-in link is invalid or expired.",
+      );
       return NextResponse.redirect(loginUrl);
     }
 

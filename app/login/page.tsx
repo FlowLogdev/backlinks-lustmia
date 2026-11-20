@@ -6,11 +6,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
 import { AuthShell } from "@/components/AuthShell";
 import { supabaseBrowserClient } from "@/lib/supabase/browser";
+import { authNext } from "@/lib/supabase/auth-next";
 
 function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next") || "/dashboard";
+  const next = authNext(params.get("next"));
   const callbackError = params.get("error");
 
   const [email, setEmail] = useState("");
