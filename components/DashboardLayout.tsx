@@ -4,13 +4,15 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 type DashboardLayoutProps = {
   children: ReactNode;
   /** optional manual override, e.g. "overview", "billing", etc. */
   active?: string;
 };
+
+type DashboardPlan = { plan: string; isPro: boolean };
 
 const navItems = [
   { href: "/dashboard", key: "overview", label: "Overview" },
@@ -29,6 +31,21 @@ const navItems = [
 
 export default function DashboardLayout({ children, active }: DashboardLayoutProps) {
   const pathname = usePathname();
+  const [plan, setPlan] = useState<DashboardPlan | null>();
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/proscan/quota?view=plan", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Plan unavailable");
+        return (await response.json()) as DashboardPlan;
+      })
+      .then(setPlan)
+      .catch(() => {
+        if (!controller.signal.aborted) setPlan(null);
+      });
+
+    return () => controller.abort();
+  }, []);
 
   // derive an active key from pathname if not explicitly passed
   const derivedActive =
@@ -77,9 +94,6 @@ export default function DashboardLayout({ children, active }: DashboardLayoutPro
           ))}
         </nav>
 
-        <div className="px-4 py-4 border-t border-white/10 text-xs text-white/50">
-          Demo workspace · Free plan
-        </div>
       </aside>
 
       {/* MAIN AREA */}
@@ -119,17 +133,20 @@ export default function DashboardLayout({ children, active }: DashboardLayoutPro
               </div>
             </div>
 
-            {/* Right: plan + upgrade button */}
             <div className="flex items-center gap-2">
-              <span className="hidden sm:inline text-xs text-white/60">
-                Plan: <span className="uppercase">Free</span>
+              <span className="whitespace-nowrap text-xs text-white/60" aria-live="polite">
+                {plan ? (
+                  <>Plan: <span className="uppercase">{plan.plan}</span></>
+                ) : plan === null ? "Plan unavailable" : "Checking plan…"}
               </span>
-              <Link
-                href="/pricing"
-                className="px-3 py-2 rounded-xl bg-gradient-to-r from-pink-500 via-fuchsia-500 to-indigo-500 text-xs font-semibold hover:opacity-90"
-              >
-                Upgrade to Pro
-              </Link>
+              {plan && !plan.isPro && (
+                <Link
+                  href="/pricing"
+                  className="px-3 py-2 rounded-xl bg-gradient-to-r from-pink-500 via-fuchsia-500 to-indigo-500 text-xs font-semibold hover:opacity-90"
+                >
+                  Upgrade to Pro
+                </Link>
+              )}
             </div>
           </div>
         </header>

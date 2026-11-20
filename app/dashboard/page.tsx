@@ -166,6 +166,7 @@ type Quota = {
   plan?: string;
   status?: string;
   demoUser?: boolean;
+  adminTester?: boolean;
 };
 
 function normalizeQuota(d: any): Quota | null {
@@ -189,6 +190,7 @@ function normalizeQuota(d: any): Quota | null {
       plan: d.plan,
       status: d.status,
       demoUser: d.demoUser,
+      adminTester: d.adminTester,
     };
   }
 
@@ -295,7 +297,7 @@ export default function Dashboard() {
   const [isInternal, setIsInternal] = useState(false);
 
   const remaining = quota?.remaining ?? 0;
-  const planName = quota?.plan ?? (isInternal ? "internal" : "free");
+  const planName = quota?.adminTester ? "admin" : isInternal ? "internal" : quota?.plan;
   const isProUser = !!quota?.isPro || isInternal;
 
   // Internal user can always use Pro Scan (ignore remaining)
@@ -655,8 +657,12 @@ export default function Dashboard() {
                 Quick Scan
               </div>
               <div className="text-xs text-white/50 mt-1">
-                Plan: <span className="uppercase">{planName}</span>{" "}
-                {isProUser ? "· Pro scans included" : "· Pro scans locked"}
+                {planName ? (
+                  <>
+                    Plan: <span className="uppercase">{planName}</span>{" "}
+                    {isProUser ? "· Pro scans included" : "· Pro scans locked"}
+                  </>
+                ) : "Checking plan…"}
               </div>
             </div>
 
@@ -674,9 +680,9 @@ export default function Dashboard() {
                   <>
                     Pro scans left today: <b>{remaining}</b>
                   </>
-                ) : (
+                ) : quota ? (
                   <>Upgrade to unlock Pro Scans</>
-                )}
+                ) : null}
               </span>
             </div>
           </div>

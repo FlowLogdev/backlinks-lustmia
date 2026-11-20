@@ -57,11 +57,16 @@ export async function GET(req: Request) {
   try {
     const supabaseAuth = await createSupabaseServer();
     const { searchParams } = new URL(req.url);
+    const planOnly = searchParams.get("view") === "plan";
 
     const authedUser = await supabaseAuth.auth.getUser().then(
       ({ data }) => data.user,
       () => null,
     );
+    if (planOnly && !authedUser) {
+      return NextResponse.json({ error: "Sign in to view your plan" }, { status: 401 });
+    }
+
     const authedEmail = authedUser?.email?.toLowerCase() ?? null;
     const isAdmin = isRankCoreAdmin(authedUser);
 
@@ -77,6 +82,10 @@ export async function GET(req: Request) {
     // ADMIN SHORT-CIRCUIT
     // -----------------------------
     if (isAdmin) {
+      if (planOnly) {
+        return NextResponse.json({ plan: "admin", isPro: true });
+      }
+
       return NextResponse.json({
         userId,
         email: authedEmail,
@@ -104,22 +113,27 @@ export async function GET(req: Request) {
     // 1) Read subscription (if exists)
     // IMPORTANT: your table uses plan_id (NOT plan)
     try {
-      const { data: sub } = await supabaseAdmin
+      const { data: sub, error } = await supabaseAdmin
         .from("proscan_subscriptions")
         .select("plan_id,status,current_period_end")
         .eq("user_id", userId)
         .maybeSingle();
 
+      if (error && planOnly) throw error;
       if (sub) {
         plan = String(sub.plan_id || plan).toLowerCase();
         status = sub.status || status;
       }
-    } catch {
+    } catch (error) {
+      if (planOnly) throw error;
       // ignore missing table / schema mismatch
     }
 
     const limit = computePlanLimit(plan, status);
     const isPaidActive = status === "active" && plan !== "free";
+    if (planOnly) {
+      return NextResponse.json({ plan: isPaidActive ? plan : "free", isPro: isPaidActive });
+    }
 
     // 2) Read / upsert usage today
     try {
