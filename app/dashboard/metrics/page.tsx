@@ -353,6 +353,7 @@ export default function MetricsPage() {
     }
 
     setAiLoading(true);
+    setError(null);
     setAi(null);
     try {
       const r = await fetch("/api/metrics-ai", {
@@ -633,16 +634,8 @@ export default function MetricsPage() {
                 marginBottom: 18,
               }}
             >
-              <div style={{ fontWeight: 900, marginBottom: 10 }}>AI Summary</div>
-              <div
-                style={{
-                  color: "rgba(255,255,255,0.85)",
-                  lineHeight: 1.5,
-                  marginBottom: 14,
-                }}
-              >
-                {ai.summary}
-              </div>
+              <h2 style={{ fontWeight: 900, marginBottom: 10 }}>AI Summary</h2>
+              <p className="leading-relaxed text-neutral-800">{ai.summary}</p>
             </div>
           )}
 
